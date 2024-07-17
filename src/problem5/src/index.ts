@@ -58,7 +58,13 @@ app.get('/users', async (req, res) => {
             skip: (pageIndex - 1) * pageSize,
         }
         );
-        res.json(users);
+        const totalRecord = await prisma.user.count({where})
+        const totalPage = Math.ceil(totalRecord / pageSize)
+        res.json({
+            total_page: totalPage,
+            total_record: totalRecord,
+            users,
+        });
     } catch (error) {
         console.log(error);
         res.status(500).json({ error: 'Internal Server' });
