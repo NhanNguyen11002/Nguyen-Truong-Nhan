@@ -1,0 +1,76 @@
+@startuml
+actor User
+participant Frontend
+participant Middleware
+participant WebSocket
+participant ScoreServices
+participant LeaderboardServices
+database Redis
+database Database
+
+Frontend -> WebSocket: Create socket
+activate Frontend
+activate WebSocket
+User -> Frontend: Complete action
+Frontend -> Middleware: Update score API
+activate Middleware
+
+alt Verified Token
+
+    Middleware -> ScoreServices: Update score action
+    activate ScoreServices
+    ScoreServices -> Database: Save data
+    activate Database
+    Database --> ScoreServices: Save data result
+    deactivate Database
+    ScoreServices --> Middleware: Update score result
+    Middleware --> Frontend: API result
+    deactivate Middleware
+    Frontend --> User: Display result
+
+
+    ScoreServices -> Redis: Update score of user
+    activate Redis
+    ScoreServices -> LeaderboardServices: Emit update score event
+    deactivate ScoreServices
+    activate LeaderboardServices
+    LeaderboardServices -> Redis: Get current top 10
+    Redis --> LeaderboardServices: Current top 10 
+    LeaderboardServices -> Database: Get old top 10
+    activate Database
+    Database --> LeaderboardServices: Old top 10
+    deactivate Database
+    deactivate Redis
+    LeaderboardServices -> LeaderboardServices: Compare old top 10 with current top 10
+    alt Changed
+        LeaderboardServices -> Redis: Get the last updated timestamp
+        activate Redis
+        Redis --> LeaderboardServices: Last updated timestamp
+        deactivate Redis
+        alt The gap > 1000ms
+        LeaderboardServices -> Database: Save the current top 10
+        activate Database
+        Database --> LeaderboardServices: Save result
+        deactivate Database
+        LeaderboardServices --> WebSocket: Current leader board
+        deactivate LeaderboardServices
+        WebSocket --> Frontend: Current leader board
+        else The gap < 1000ms
+
+        end
+
+    else Not changed
+
+
+    end
+    
+else Not verified Token
+    activate Middleware
+    Middleware --> Frontend: Response (Unauthorized)
+    Frontend --> User: Display error message
+    deactivate Middleware
+end
+
+deactivate Frontend
+deactivate WebSocket
+@enduml
